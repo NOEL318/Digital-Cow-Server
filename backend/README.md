@@ -238,7 +238,7 @@ Los tests de integracion levantan MySQL con Testcontainers. Requiere Docker acti
 
 ## 12. Despliegue en VPS
 
-El directorio `../deploy/` contiene `docker-compose.prod.yml`, scripts de instalacion y backup y un Caddyfile listo para TLS automatico. Ver `../deploy/README.md` para el procedimiento paso a paso.
+El directorio `../deploy/` contiene `docker-compose.prod.yml`, scripts de instalacion y backup, y una config de Nginx (`nginx/nginx.conf`) que hace reverse proxy en HTTP al backend. Ver `../deploy/README.md` para el procedimiento paso a paso.
 
 ## 13. Endpoints publicos relevantes
 

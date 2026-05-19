@@ -95,7 +95,7 @@ docker compose restart backend
 
 ### Backend publico
 El backend debe ser accesible desde internet para que Vercel lo pueda llamar. Opciones:
-- VPS con Caddy / Nginx haciendo TLS al puerto 8080.
+- VPS con Nginx haciendo reverse proxy al puerto 8080 (ver `deploy/`).
 - Tunel temporal (Cloudflare Tunnel, ngrok) para pruebas rapidas.
 
 ## Bootstrap super-admin

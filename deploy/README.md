@@ -6,13 +6,13 @@ Esta carpeta contiene todo lo necesario para desplegar el backend de Digital Cow
 
 - MySQL 8 en contenedor con volumen persistente y red interna (no expone puertos al exterior).
 - Backend Java 21 + Spring Boot 3.3 en contenedor, leyendo configuracion de un archivo .env externo.
-- Caddy como proxy inverso con TLS automatico via Let's Encrypt.
+- Nginx como proxy inverso en HTTP (puerto 80), expuesto por la IP publica del VPS.
 
 ## Requisitos
 
 - VPS con Debian 12 o Ubuntu 22.04 con acceso root.
-- Dominio publico apuntando a la IP del VPS con un registro A. Ejemplo: api.tudominio.com.
-- Acceso saliente a Internet para descargar imagenes y emitir certificados.
+- IP publica accesible desde Internet en el puerto 80.
+- Acceso saliente a Internet para descargar imagenes.
 
 ## Pasos de instalacion
 
@@ -44,35 +44,31 @@ chmod 600 /opt/digital-cow/.env
 nano /opt/digital-cow/.env
 ```
 
-Las variables criticas son `DOMAIN`, `JWT_SECRET`, los passwords de MySQL y las claves de Cloudinary y Resend. Generar el `JWT_SECRET` con `openssl rand -base64 48`.
+Las variables criticas son `JWT_SECRET`, los passwords de MySQL y las claves de Cloudinary y Resend. Generar el `JWT_SECRET` con `openssl rand -base64 48`.
 
-### 4. Apuntar el DNS
-
-Crear un registro A en el panel de tu proveedor de DNS que apunte `DOMAIN` a la IP del VPS. Verificar con `dig +short api.tudominio.com` antes de continuar.
-
-### 5. Levantar los servicios
+### 4. Levantar los servicios
 
 ```
 bash /opt/digital-cow/repo/deploy/scripts/deploy.sh
 ```
 
-El script reconstruye la imagen del backend, levanta los tres contenedores y muestra el estado. Caddy obtendra el certificado TLS automaticamente la primera vez. Los logs se ven con:
+El script reconstruye la imagen del backend, levanta los tres contenedores y muestra el estado. Los logs se ven con:
 
 ```
 docker compose -f /opt/digital-cow/repo/deploy/docker-compose.prod.yml --env-file /opt/digital-cow/.env logs -f
 ```
 
-### 6. Verificacion
+### 5. Verificacion
 
-Probar la API publica:
+Probar la API publica reemplazando `<IP_DEL_VPS>` por la IP de la VPS (ej. 74.208.133.36):
 
 ```
-curl -i https://api.tudominio.com/actuator/health
+curl -i http://<IP_DEL_VPS>/actuator/health
 ```
 
 Debe devolver `200 OK` con un cuerpo JSON `{"status":"UP"}`.
 
-### 7. Crear el superadmin
+### 6. Crear el superadmin
 
 Al primer arranque el backend crea un superadmin y registra una linea en el log con la password aleatoria:
 
@@ -82,9 +78,11 @@ docker logs digitalcow-backend 2>&1 | grep "SUPERADMIN CREATED"
 
 Iniciar sesion en `https://digital-cow.vercel.app/admin/login` con esas credenciales y cambiar la password en Ajustes.
 
-### 8. Conectar el frontend
+### 7. Conectar el frontend
 
-Configurar en el panel de Vercel la variable de entorno `VITE_API_URL=https://api.tudominio.com/api/v1` y redeployar. Asegurarse que `CORS_ALLOWED_ORIGINS` en `/opt/digital-cow/.env` incluye el dominio de Vercel.
+Configurar en el panel de Vercel la variable de entorno `VITE_API_URL=http://<IP_DEL_VPS>/api/v1` y redeployar. Asegurarse que `CORS_ALLOWED_ORIGINS` en `/opt/digital-cow/.env` incluye el dominio de Vercel.
+
+> Aviso: si el frontend de Vercel se sirve por HTTPS, el navegador bloqueara las llamadas HTTP al VPS como "mixed content". Para resolverlo hay que sumar un dominio + TLS al VPS (por ejemplo certbot + bloque server en `:443` dentro de `nginx.conf`).
 
 ## Operaciones del dia a dia
 
@@ -141,7 +139,8 @@ Si rotas el `JWT_SECRET` todos los tokens emitidos previamente quedan invalidos 
 
 ## Solucion de problemas
 
-- **Caddy no obtiene certificado:** verificar que el DNS apunte al VPS y que los puertos 80 y 443 esten abiertos. Revisar `docker logs digitalcow-caddy`.
+- **Nginx no arranca:** revisar `docker logs digitalcow-nginx`. Casi siempre es un error de sintaxis en `nginx/nginx.conf`. Validar localmente con `docker run --rm -v $PWD/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro nginx:1.27-alpine nginx -t`.
 - **Backend no arranca:** revisar `docker logs digitalcow-backend`. Casi siempre es una variable faltante en `.env` o MySQL no esta sano.
 - **Frontend recibe CORS error:** anadir el origen exacto en `CORS_ALLOWED_ORIGINS` y reiniciar el backend.
+- **Mixed content desde Vercel:** el frontend en HTTPS no puede llamar HTTP. Agregar dominio + certbot al VPS o usar Vercel solo en HTTP (no recomendado).
 - **Imagen no se actualiza:** ejecutar `docker compose ... build --no-cache backend` y luego `up -d`.
