@@ -1,0 +1,21 @@
+# Unidad systemd para arrancar y detener Digital Cow como un servicio del sistema.
+# Copiar a /etc/systemd/system/digitalcow.service y habilitar con:
+#   systemctl daemon-reload
+#   systemctl enable --now digitalcow
+[Unit]
+Description=Digital Cow backend stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/digital-cow/repo
+EnvironmentFile=/opt/digital-cow/.env
+ExecStart=/usr/bin/docker compose -f /opt/digital-cow/repo/deploy/docker-compose.prod.yml --env-file /opt/digital-cow/.env up -d
+ExecStop=/usr/bin/docker compose -f /opt/digital-cow/repo/deploy/docker-compose.prod.yml --env-file /opt/digital-cow/.env down
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

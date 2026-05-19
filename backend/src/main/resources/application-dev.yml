@@ -1,0 +1,16 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+logging:
+  level:
+    com.digitalcow: DEBUG
+    org.hibernate.SQL: DEBUG
+digitalcow:
+  mail:
+    # En dev el default sigue siendo el logger en consola, pero si el
+    # desarrollador define MAIL_PROVIDER (por ejemplo resend) en el
+    # entorno, ese valor gana. Sin esta indireccion el hardcode
+    # bloqueaba probar envios reales en local.
+    provider: ${MAIL_PROVIDER:dev}

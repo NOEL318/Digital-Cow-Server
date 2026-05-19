@@ -1,0 +1,19 @@
+# Archivo que indica a Docker que no copie ciertos directorios y archivos al contexto.
+# Reduce el tamano del contexto enviado al daemon y acelera la construccion.
+
+target
+.idea
+.vscode
+.git
+.gitignore
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Tests no se ejecutan dentro de Docker (no estan en la imagen runtime).
+src/test
+
+# Documentacion local que no afecta la imagen.
+README.md
+*.md

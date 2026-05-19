@@ -1,0 +1,50 @@
+# Caddyfile para Digital Cow en VPS privada.
+# Caddy expone TLS automatico con Let's Encrypt y enruta hacia el backend en docker.
+# Reemplaza {$DOMAIN} via variable de entorno DOMAIN definida en el .env.
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	# Cabeceras de seguridad recomendadas para una API publica.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "interest-cohort=()"
+		-Server
+	}
+
+	# Endpoint de salud expuesto sin auth para monitoreo externo.
+	handle /actuator/health {
+		reverse_proxy backend:8080
+	}
+
+	# Todo el trafico de la API.
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			header_up X-Real-IP {remote}
+			header_up X-Forwarded-For {remote}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# Swagger UI publica solo para desarrolladores; comentar en produccion publica si no se desea.
+	handle /swagger-ui* {
+		reverse_proxy backend:8080
+	}
+	handle /v3/api-docs* {
+		reverse_proxy backend:8080
+	}
+
+	# Rechazo explicito para todo lo demas para no exponer endpoints administrativos por error.
+	handle {
+		respond "Digital Cow API" 200
+	}
+
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+}

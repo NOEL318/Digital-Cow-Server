@@ -1,0 +1,10 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+digitalcow:
+  security:
+    jwt:
+      secret: test-secret-key-test-secret-key-test-secret-key-32bytes!
+  mail:
+    dev-logging: true

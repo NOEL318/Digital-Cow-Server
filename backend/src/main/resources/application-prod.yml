@@ -1,0 +1,7 @@
+logging:
+  level:
+    root: INFO
+    com.digitalcow: INFO
+digitalcow:
+  mail:
+    provider: ${MAIL_PROVIDER:resend}

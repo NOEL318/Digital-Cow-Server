@@ -1,0 +1,94 @@
+# Archivo de orquestacion para produccion en VPS.
+# Este archivo levanta MySQL, el backend Java y Caddy como proxy inverso con TLS automatico.
+# El frontend se sirve desde Vercel, por lo que no se incluye aqui.
+# Las credenciales y secretos se leen desde /opt/digital-cow/.env (ver .env.prod.example).
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: digitalcow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - digitalcow_mysql_data:/var/lib/mysql
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - digitalcow-net
+    # No se exponen puertos al host. Solo el backend accede al MySQL via red interna.
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: digitalcow-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-resend}
+      MAIL_FROM: ${MAIL_FROM}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL}
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/./urandom"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - digitalcow-net
+    # Solo Caddy expone trafico al exterior. El backend solo escucha en la red interna.
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: digitalcow-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    networks:
+      - digitalcow-net
+    environment:
+      DOMAIN: ${DOMAIN}
+
+networks:
+  digitalcow-net:
+    driver: bridge
+
+volumes:
+  digitalcow_mysql_data:
+    name: digitalcow_mysql_data
+    labels:
+      app: "digital-cow"
+      purpose: "mysql-data"
+  caddy_data:
+    name: digitalcow_caddy_data
+  caddy_config:
+    name: digitalcow_caddy_config
