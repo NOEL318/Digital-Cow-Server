@@ -2,7 +2,10 @@
 .idea/
 .vscode/
 *.iml
+
+# Claude / Superpowers (no se versionan)
 .claude
+docs/superpowers/
 
 # OS
 .DS_Store
