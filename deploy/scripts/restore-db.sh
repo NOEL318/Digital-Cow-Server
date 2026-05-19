@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Script de restauracion de un dump generado por backup-db.sh.
-# Requiere un argumento con la ruta al archivo .sql.gz a restaurar.
+# Restauracion de un dump generado por backup-db.sh.
 # Detiene el backend antes de restaurar para evitar escrituras concurrentes.
+# Uso: ./restore-db.sh <ruta-al-archivo.sql.gz>
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
@@ -10,12 +10,17 @@ if [[ $# -lt 1 ]]; then
 fi
 
 DUMP="$1"
-APP_DIR="/opt/digital-cow"
-ENV_FILE="$APP_DIR/.env"
-COMPOSE_FILE="$APP_DIR/repo/deploy/docker-compose.prod.yml"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ENV_FILE="$REPO_DIR/.env"
+COMPOSE_FILE="$REPO_DIR/deploy/docker-compose.prod.yml"
 
 if [[ ! -f "$DUMP" ]]; then
     echo "ERROR: No existe $DUMP" >&2
+    exit 1
+fi
+if [[ ! -f "$ENV_FILE" ]]; then
+    echo "ERROR: No existe $ENV_FILE" >&2
     exit 1
 fi
 

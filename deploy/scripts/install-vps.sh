@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Script de instalacion inicial en VPS Debian o Ubuntu.
-# Instala Docker, Docker Compose, firewall y crea el directorio de la app.
-# Ejecutar como root o con sudo.
+# Instala Docker, Docker Compose y configura el firewall.
+# Ejecutar como root o con sudo desde cualquier ruta.
 set -euo pipefail
-
-APP_DIR="/opt/digital-cow"
 
 echo "==> Actualizando paquetes del sistema"
 apt-get update
@@ -42,16 +40,11 @@ ufw allow 443/tcp
 ufw allow 443/udp
 ufw --force enable
 
-echo "==> Creando directorio de la app en $APP_DIR"
-mkdir -p "$APP_DIR" "$APP_DIR/backups"
-chmod 700 "$APP_DIR/backups"
-
 echo "==> Habilitando Docker para que arranque al iniciar el sistema"
 systemctl enable docker
 systemctl start docker
 
 echo "==> Listo. Pasos siguientes:"
-echo "  1. Clonar el repositorio en $APP_DIR/repo"
-echo "  2. Copiar deploy/.env.prod.example a $APP_DIR/.env y completar"
-echo "  3. Ajustar DNS del dominio para que apunte a la IP del VPS"
-echo "  4. Ejecutar deploy/scripts/deploy.sh"
+echo "  1. Clonar el repositorio donde prefieras (ej: ~/Digital-Cow-Server)"
+echo "  2. Copiar deploy/.env.prod.example a <repo>/.env y completar"
+echo "  3. Ejecutar deploy/scripts/deploy.sh desde la raiz del repo"

@@ -22,40 +22,40 @@ Acceder por SSH como root o como usuario con sudo. Crear un usuario no root para
 
 ### 2. Instalar dependencias
 
-Copiar este repositorio o solo el directorio `deploy/` a la VPS y ejecutar el instalador:
+Clonar el repositorio donde prefieras (ejemplo: `~/Digital-Cow-Server`) y ejecutar el instalador:
 
 ```
+git clone https://github.com/tu-usuario/digital-cow.git ~/Digital-Cow-Server
+cd ~/Digital-Cow-Server
 bash deploy/scripts/install-vps.sh
 ```
 
-El script instala Docker, Docker Compose, configura el firewall UFW y crea `/opt/digital-cow`. Despues clonar el repositorio en esa ruta:
-
-```
-git clone https://github.com/tu-usuario/digital-cow.git /opt/digital-cow/repo
-```
+El script instala Docker, Docker Compose y configura el firewall UFW.
 
 ### 3. Configurar variables de entorno
 
-Copiar la plantilla y completar los valores reales:
+Copiar la plantilla a la raiz del repo y completar los valores reales. Los scripts esperan `.env` justo ahi.
 
 ```
-cp /opt/digital-cow/repo/deploy/.env.prod.example /opt/digital-cow/.env
-chmod 600 /opt/digital-cow/.env
-nano /opt/digital-cow/.env
+cp deploy/.env.prod.example .env
+chmod 600 .env
+nano .env
 ```
 
 Las variables criticas son `JWT_SECRET`, los passwords de MySQL y las claves de Cloudinary y Resend. Generar el `JWT_SECRET` con `openssl rand -base64 48`.
 
 ### 4. Levantar los servicios
 
+Desde la raiz del repo:
+
 ```
-bash /opt/digital-cow/repo/deploy/scripts/deploy.sh
+bash deploy/scripts/deploy.sh
 ```
 
 El script reconstruye la imagen del backend, levanta los tres contenedores y muestra el estado. Los logs se ven con:
 
 ```
-docker compose -f /opt/digital-cow/repo/deploy/docker-compose.prod.yml --env-file /opt/digital-cow/.env logs -f
+docker compose -f deploy/docker-compose.prod.yml --env-file .env logs -f
 ```
 
 ### 5. Verificacion
@@ -80,7 +80,7 @@ Iniciar sesion en `https://digital-cow.vercel.app/admin/login` con esas credenci
 
 ### 7. Conectar el frontend
 
-Configurar en el panel de Vercel la variable de entorno `VITE_API_URL=http://<IP_DEL_VPS>/api/v1` y redeployar. Asegurarse que `CORS_ALLOWED_ORIGINS` en `/opt/digital-cow/.env` incluye el dominio de Vercel.
+Configurar en el panel de Vercel la variable de entorno `VITE_API_URL=http://<IP_DEL_VPS>/api/v1` y redeployar. Asegurarse que `CORS_ALLOWED_ORIGINS` en el `.env` del repo incluye el dominio de Vercel.
 
 > Aviso: si el frontend de Vercel se sirve por HTTPS, el navegador bloqueara las llamadas HTTP al VPS como "mixed content". Para resolverlo hay que sumar un dominio + TLS al VPS (por ejemplo certbot + bloque server en `:443` dentro de `nginx.conf`).
 
@@ -88,41 +88,43 @@ Configurar en el panel de Vercel la variable de entorno `VITE_API_URL=http://<IP
 
 ### Actualizar la app
 
+Desde la raiz del repo:
+
 ```
-bash /opt/digital-cow/repo/deploy/scripts/deploy.sh
+bash deploy/scripts/deploy.sh
 ```
 
-El script hace `git pull`, reconstruye y reinicia. Es idempotente.
+El script hace `git pull --ff-only`, reconstruye y reinicia. Es idempotente.
 
 ### Reiniciar el backend sin redeployar
 
 ```
-docker compose -f /opt/digital-cow/repo/deploy/docker-compose.prod.yml --env-file /opt/digital-cow/.env restart backend
+docker compose -f deploy/docker-compose.prod.yml --env-file .env restart backend
 ```
 
 ### Backups diarios
 
-Programar un cron en el host:
+Programar un cron en el host (reemplaza `<REPO>` por la ruta absoluta del repo):
 
 ```
 crontab -e
-0 3 * * * /opt/digital-cow/repo/deploy/scripts/backup-db.sh >> /var/log/digitalcow-backup.log 2>&1
+0 3 * * * <REPO>/deploy/scripts/backup-db.sh >> /var/log/digitalcow-backup.log 2>&1
 ```
 
-El script guarda dumps comprimidos en `/opt/digital-cow/backups` y mantiene los ultimos 14 dias.
+El script guarda dumps comprimidos en `<REPO>/backups` y mantiene los ultimos 14 dias.
 
 ### Restaurar un backup
 
 ```
-bash /opt/digital-cow/repo/deploy/scripts/restore-db.sh /opt/digital-cow/backups/digitalcow-2026-05-18-0300.sql.gz
+bash deploy/scripts/restore-db.sh backups/digitalcow-2026-05-18-0300.sql.gz
 ```
 
 ### Arranque automatico al reiniciar
 
-Instalar la unidad systemd:
+La unidad systemd `deploy/systemd/digitalcow.service` usa rutas absolutas. Editar las rutas `WorkingDirectory`, `EnvironmentFile` y los `ExecStart`/`ExecStop` para que apunten al repo y `.env` reales, luego:
 
 ```
-sudo cp /opt/digital-cow/repo/deploy/systemd/digitalcow.service /etc/systemd/system/digitalcow.service
+sudo cp deploy/systemd/digitalcow.service /etc/systemd/system/digitalcow.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now digitalcow
 ```
@@ -132,8 +134,8 @@ sudo systemctl enable --now digitalcow
 Si un secreto se filtra (Cloudinary, Resend, JWT, MySQL):
 
 1. Rotar el valor en el panel del proveedor o regenerar con `openssl rand -base64 48` para `JWT_SECRET`.
-2. Editar `/opt/digital-cow/.env`.
-3. Reiniciar con `docker compose -f deploy/docker-compose.prod.yml --env-file /opt/digital-cow/.env restart backend`.
+2. Editar el `.env` del repo.
+3. Reiniciar con `docker compose -f deploy/docker-compose.prod.yml --env-file .env restart backend`.
 
 Si rotas el `JWT_SECRET` todos los tokens emitidos previamente quedan invalidos y los usuarios deberan iniciar sesion nuevamente.
 

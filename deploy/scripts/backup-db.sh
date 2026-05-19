@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Script de backup diario de la base de datos.
-# Genera un dump comprimido en /opt/digital-cow/backups con marca de fecha.
-# Conserva los ultimos 14 dias y elimina los mas antiguos.
-# Programar via cron con: 0 3 * * * /opt/digital-cow/repo/deploy/scripts/backup-db.sh
+# Backup diario de la base de datos. Genera dump comprimido en <repo>/backups
+# con marca de fecha y conserva los ultimos 14 dias.
+# Programar via cron: 0 3 * * * /ruta/al/repo/deploy/scripts/backup-db.sh
 set -euo pipefail
 
-APP_DIR="/opt/digital-cow"
-ENV_FILE="$APP_DIR/.env"
-BACKUP_DIR="$APP_DIR/backups"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ENV_FILE="$REPO_DIR/.env"
+BACKUP_DIR="$REPO_DIR/backups"
 TIMESTAMP="$(date +%F-%H%M)"
 OUT="$BACKUP_DIR/digitalcow-$TIMESTAMP.sql.gz"
 
