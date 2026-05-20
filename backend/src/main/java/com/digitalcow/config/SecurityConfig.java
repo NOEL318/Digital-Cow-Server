@@ -55,6 +55,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/breeds").permitAll()
+                // Share publico de animal por token: solo lectura, sin tenant.
+                .requestMatchers(HttpMethod.GET, "/api/v1/public/animal-share/**").permitAll()
                 // Solo el endpoint de salud queda publico, el resto del actuator requiere auth para no
                 // filtrar metadatos como version o commit a usuarios anonimos.
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()

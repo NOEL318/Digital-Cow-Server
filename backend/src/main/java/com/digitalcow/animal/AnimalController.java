@@ -7,7 +7,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /** Endpoints CRUD y listado paginado de animales. */
 @RestController
@@ -55,5 +63,15 @@ public class AnimalController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         svc.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Devuelve o genera el token publico que permite compartir el animal
+     * por WhatsApp con acceso de solo lectura sin autenticarse.
+     */
+    @PostMapping("/{id}/share-token")
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','MANAGER','WORKER','VIEWER')")
+    public AnimalShareTokenResponse shareToken(@PathVariable Long id) {
+        return new AnimalShareTokenResponse(svc.getOrCreateShareToken(id));
     }
 }

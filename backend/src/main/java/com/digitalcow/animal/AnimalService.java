@@ -17,6 +17,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,5 +114,31 @@ public class AnimalService {
     Animal find(Long id) {
         return repo.findById(id)
             .orElseThrow(() -> BusinessException.notFound(ErrorCode.NOT_FOUND, "Animal not found"));
+    }
+
+    /**
+     * Devuelve el token publico del animal. Lo genera bajo demanda si no
+     * existe. El token es un identificador opaco de 22 caracteres
+     * (128 bits codificados en base64url) que permite acceso de solo
+     * lectura sin autenticarse.
+     *
+     * @param id identificador del animal
+     * @return token publico
+     */
+    @Transactional
+    public String getOrCreateShareToken(Long id) {
+        Animal a = find(id);
+        if (a.getShareToken() == null) {
+            a.setShareToken(generateShareToken());
+        }
+        return a.getShareToken();
+    }
+
+    private static final SecureRandom RNG = new SecureRandom();
+
+    private String generateShareToken() {
+        byte[] bytes = new byte[16];
+        RNG.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

@@ -82,4 +82,12 @@ public class Animal extends AbstractAuditableEntity {
 
     @Column(name = "created_by_user_id", nullable = false)
     private Long createdByUserId;
+
+    /**
+     * Token publico opcional. Se genera bajo demanda cuando el dueno
+     * pide compartir el animal. Quien tenga el token accede a una vista
+     * de solo lectura sin necesidad de autenticarse.
+     */
+    @Column(name = "share_token", length = 64)
+    private String shareToken;
 }

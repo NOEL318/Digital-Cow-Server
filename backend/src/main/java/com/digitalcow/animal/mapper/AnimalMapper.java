@@ -28,6 +28,7 @@ public interface AnimalMapper {
     @Mapping(target = "createdByUserId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "shareToken", ignore = true)
     Animal fromCreate(AnimalCreateRequest req);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
@@ -37,5 +38,6 @@ public interface AnimalMapper {
     @Mapping(target = "createdByUserId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "shareToken", ignore = true)
     void applyUpdate(AnimalUpdateRequest req, @MappingTarget Animal a);
 }
