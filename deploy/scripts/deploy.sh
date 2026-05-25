@@ -29,11 +29,12 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build backend
 echo "==> Levantando servicios"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans
 
-echo "==> Esperando a que MySQL este sano"
+echo "==> Esperando a que el backend este sano (la base es TiDB Cloud gestionada; no hay MySQL local)"
 for i in $(seq 1 30); do
-    status=$(docker inspect --format='{{json .State.Health.Status}}' digitalcow-mysql 2>/dev/null || echo '"starting"')
-    echo "  intento $i mysql=$status"
-    if [[ "$status" == '"healthy"' ]]; then
+    health=$(curl -fsS http://localhost/actuator/health 2>/dev/null || true)
+    echo "  intento $i health=${health:-<sin respuesta>}"
+    if echo "$health" | grep -q '"status":"UP"'; then
+        echo "  backend sano"
         break
     fi
     sleep 5
