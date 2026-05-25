@@ -32,7 +32,6 @@ import java.util.UUID;
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
-    private static final Duration EMAIL_VERIF_TTL = Duration.ofHours(24);
     private static final Duration PWD_RESET_TTL = Duration.ofHours(2);
 
     private final AccountRepository accounts;
@@ -84,9 +83,11 @@ public class AuthService {
         u.setRole(UserRole.OWNER);
         u.setLocale(req.locale());
         u.setStatus(UserStatus.ACTIVE);
+        // La cuenta queda verificada al instante: el registro ya no exige confirmar el correo
+        // ni envia un token por email. El usuario entra directo tras crear la cuenta.
+        u.setEmailVerifiedAt(Instant.now());
         u = users.save(u);
 
-        sendVerification(u);
         return issueTokens(u);
     }
 
@@ -102,9 +103,7 @@ public class AuthService {
         if (u.getStatus() == UserStatus.DISABLED) {
             throw BusinessException.forbidden(ErrorCode.AUTH_USER_DISABLED, "User disabled");
         }
-        if (u.getRole() != UserRole.SUPERADMIN && u.getEmailVerifiedAt() == null) {
-            throw BusinessException.forbidden(ErrorCode.AUTH_EMAIL_NOT_VERIFIED, "Email not verified");
-        }
+        // Ya no se exige email verificado para iniciar sesion: el registro auto-verifica la cuenta.
         return issueTokens(u);
     }
 
@@ -193,25 +192,6 @@ public class AuthService {
         rt.setExpiresAt(Instant.now().plus(jwt.refreshTtl()));
         refreshTokens.save(rt);
         return new AuthTokensResponse(access, refresh, jwt.accessTtl().toSeconds());
-    }
-
-    private void sendVerification(AppUser u) {
-        EmailVerification v = new EmailVerification();
-        v.setUserId(u.getId());
-        v.setToken(UUID.randomUUID().toString().replace("-", ""));
-        v.setExpiresAt(Instant.now().plus(EMAIL_VERIF_TTL));
-        verifications.save(v);
-        // El envio de correo no debe romper el registro: si falla,
-        // dejamos el token guardado y el usuario podra pedir un
-        // reenvio mas tarde. Loguear para diagnostico.
-        try {
-            mail.send(u.getEmail(), "Verify your Digital Cow email",
-                "<p>Verification token: <code>" + v.getToken() + "</code></p>");
-        } catch (Exception e) {
-            // Igual que en el reset: no se loguea el token, solo el usuario afectado.
-            log.warn("Email verification send failed for userId={}: {}",
-                u.getId(), e.getMessage());
-        }
     }
 
     private String slugify(String name) {

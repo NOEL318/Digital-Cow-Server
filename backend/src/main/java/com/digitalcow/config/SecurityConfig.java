@@ -76,7 +76,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+        // setAllowedOriginPatterns (en vez de setAllowedOrigins) admite comodines como
+        // https://*.vercel.app y sigue siendo compatible con allowCredentials(true). Asi los
+        // despliegues de Vercel (incluyendo previews con subdominio variable) pasan el preflight.
+        cfg.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
         cfg.setAllowedMethods(List.of("GET","POST","PATCH","DELETE","OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setExposedHeaders(List.of("X-Trace-Id"));
