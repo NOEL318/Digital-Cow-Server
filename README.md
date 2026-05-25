@@ -3,15 +3,15 @@
 Plataforma SaaS multi-tenant para gestion ganadera. Fase 1: registro, equipos, ranchos, lotes, catalogo de animales con fotos, dashboard, bilingue espanol / ingles, PWA. Fase 6 en curso: simplificacion de la UI, accesibilidad para baja alfabetizacion, catalogo de medicamentos con escaneo de codigos de barras, graficas comparativas por animal, fotos visibles en todas las vistas, compra y venta integradas, envio de correos con Resend.
 
 ## Stack
-- Backend: Java 21 + Spring Boot 3.3 + MySQL 8 + Flyway + Hibernate
+- Backend: Java 21 + Spring Boot 3.3 + MySQL 8 (TiDB Cloud) + Flyway + Hibernate
 - Frontend: React 18 + Vite + shadcn/ui + TanStack Query + Recharts + zxing (escaneo de codigos de barras)
-- Infra: Docker Compose para MySQL + backend + Adminer. Vercel para el frontend. Cloudinary para fotos, Resend para correo.
+- Infra: Docker Compose para el backend. Base de datos gestionada en TiDB Cloud. Vercel para el frontend. Cloudinary para fotos, Resend para correo.
 
 ## Estructura
 
 - `backend/` API REST monolitica modular.
 - `frontend/` SPA + PWA (deploy en Vercel).
-- `docker-compose.yml` orquestacion local de MySQL + backend + Adminer (sin frontend).
+- `docker-compose.yml` orquestacion local del backend (sin frontend; la base de datos es TiDB Cloud).
 - `frontend/vercel.json` configuracion de despliegue en Vercel.
 - `docs/superpowers/specs/` y `docs/superpowers/plans/` documentacion.
 
@@ -23,11 +23,12 @@ Copiar `.env.example` a `.env` y completar. **Nunca subir el .env al repositorio
 
 | Variable | Sensible | Descripcion |
 |----------|----------|-------------|
-| `MYSQL_ROOT_PASSWORD` | si | Password de root de MySQL. |
-| `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_HOST`, `MYSQL_PORT` | si (password) | Credenciales y endpoint de la base de datos. |
+| `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_HOST`, `MYSQL_PORT` | si (password) | Credenciales y endpoint de la base de datos gestionada (TiDB Cloud). El puerto de TiDB es 4000. |
+| `MYSQL_PARAMS` | no | Parametros JDBC. TiDB requiere TLS: `sslMode=VERIFY_IDENTITY&serverTimezone=UTC&characterEncoding=utf8`. |
 | `JWT_SECRET` | si | Cadena aleatoria >= 256 bits. Generar con `openssl rand -base64 48`. |
 | `CORS_ALLOWED_ORIGINS` | no | Lista de origenes permitidos, separados por coma. |
 | `SUPERADMIN_EMAIL` | no | Email del super-admin que se crea al primer arranque. |
+| `SUPERADMIN_PASSWORD` | si | Password del super-admin inicial. Si se deja vacia, se genera una aleatoria visible una sola vez en el log. |
 | `CLOUDINARY_CLOUD_NAME` | no | Nombre publico de la cuenta Cloudinary. |
 | `CLOUDINARY_API_KEY` | no | Clave publica de Cloudinary. |
 | `CLOUDINARY_API_SECRET` | si | Secreto de Cloudinary. NUNCA viaja al cliente. |
@@ -60,16 +61,20 @@ Las fotos se suben directamente desde el navegador con una firma generada por el
 
 ```
 cp .env.example .env
-# Backend + MySQL + Adminer en Docker
+# Completar .env con el endpoint y credenciales de TiDB Cloud (MYSQL_HOST/PORT/USER/PASSWORD/PARAMS).
+# Crear la base una sola vez en TiDB:  CREATE DATABASE IF NOT EXISTS digitalcow;
+# Backend en Docker (la base de datos es gestionada, no se levanta aqui)
 docker compose up -d --build
 # Frontend en dev local (proxy automatico a backend localhost:8080)
 cd frontend && npm install && npm run dev
 ```
 
+Flyway crea el esquema y siembra datos base al primer arranque.
+
 - Frontend (Vite dev): http://localhost:5173
 - Backend: http://localhost:8080
-- Adminer: http://localhost:8081
 - Swagger: http://localhost:8080/swagger-ui.html
+- Base de datos: TiDB Cloud (consola web en https://cloud.tidbcloud.com)
 
 ## Despliegue del frontend en Vercel
 
@@ -111,19 +116,16 @@ Iniciar sesion en `/admin/login` y cambiar la password en `/ajustes/perfil`.
 ## Primer registro
 
 1. Abrir `/register` y crear cuenta con un email valido.
-2. En dev, el token de verificacion se loguea (buscar `--- DEV EMAIL ---` en logs).
-3. Visitar `/verify-email?token=<el-token>`.
+2. La cuenta queda verificada al instante: se entra directo, sin token ni paso de confirmacion por correo.
 
-## Backups MySQL
+## Backups de la base de datos
 
-Cron en host:
-```
-docker exec -t digital-cow_mysql_1 mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" digitalcow | gzip > backups/dc-$(date +%F).sql.gz
-```
+La base de datos vive en TiDB Cloud, que gestiona los backups automaticos (incluyendo restauracion a un punto en el tiempo) desde su consola web. Para un volcado manual puntual:
 
-Restore:
 ```
-gunzip -c backups/dc-YYYY-MM-DD.sql.gz | docker exec -i digital-cow_mysql_1 mysql -u root -p"$MYSQL_ROOT_PASSWORD" digitalcow
+mysqldump --single-transaction --set-gtid-purged=OFF --no-tablespaces \
+  --host "$MYSQL_HOST" --port "$MYSQL_PORT" -u "$MYSQL_USER" -p --ssl-mode=VERIFY_IDENTITY \
+  "$MYSQL_DATABASE" | gzip > backups/dc-$(date +%F).sql.gz
 ```
 
 ## Tests

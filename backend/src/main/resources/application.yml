@@ -4,7 +4,10 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:digitalcow}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
+    # Los parametros de conexion se externalizan en MYSQL_PARAMS para poder cambiar el modo TLS
+    # sin tocar el codigo: dev local usa useSSL=false; un MySQL gestionado (TiDB Cloud, etc.)
+    # exige TLS con MYSQL_PARAMS=sslMode=VERIFY_IDENTITY&serverTimezone=UTC&characterEncoding=utf8
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:digitalcow}?${MYSQL_PARAMS:useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8}
     username: ${MYSQL_USER:digitalcow}
     password: ${MYSQL_PASSWORD:changeme}
     hikari:
@@ -89,6 +92,9 @@ digitalcow:
       api-key: ${RESEND_API_KEY:}
   superadmin:
     email: ${SUPERADMIN_EMAIL:admin@digitalcow.local}
+    # Si se define, el superadmin inicial usa esta password; si queda vacia se genera
+    # una aleatoria que se imprime una sola vez en el log al primer arranque.
+    password: ${SUPERADMIN_PASSWORD:}
 
 resilience4j:
   circuitbreaker:

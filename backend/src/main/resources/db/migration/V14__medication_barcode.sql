@@ -2,13 +2,15 @@
 -- presentacion comercial, fabricante y codigo de barras, y permite
 -- entradas propias por tenant (account_id NULL = seed global).
 
+-- Sin clausulas AFTER: TiDB no permite posicionar una columna nueva despues de otra
+-- columna agregada en el mismo ALTER. La posicion fisica no afecta al ORM.
 ALTER TABLE medication
-  ADD COLUMN account_id BIGINT NULL AFTER id,
-  ADD COLUMN manufacturer VARCHAR(160) NULL AFTER active_ingredient,
-  ADD COLUMN presentation VARCHAR(160) NULL AFTER manufacturer,
-  ADD COLUMN barcode VARCHAR(40) NULL AFTER presentation,
+  ADD COLUMN account_id BIGINT NULL,
+  ADD COLUMN manufacturer VARCHAR(160) NULL,
+  ADD COLUMN presentation VARCHAR(160) NULL,
+  ADD COLUMN barcode VARCHAR(40) NULL,
   ADD COLUMN category ENUM('VACCINE','ANTIBIOTIC','ANTIPARASITIC','HORMONE','VITAMIN','ANTIINFLAMMATORY','OTHER')
-    NOT NULL DEFAULT 'OTHER' AFTER barcode;
+    NOT NULL DEFAULT 'OTHER';
 
 CREATE INDEX idx_medication_account ON medication(account_id);
 CREATE INDEX idx_medication_barcode ON medication(barcode);

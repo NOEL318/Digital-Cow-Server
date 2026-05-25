@@ -4,7 +4,7 @@ Esta carpeta contiene todo lo necesario para desplegar el backend de Digital Cow
 
 ## Que se despliega
 
-- MySQL 8 en contenedor con volumen persistente y red interna (no expone puertos al exterior).
+- Base de datos gestionada en TiDB Cloud (fuera del VPS). El VPS solo se conecta a ella por TLS.
 - Backend Java 21 + Spring Boot 3.3 en contenedor, leyendo configuracion de un archivo .env externo.
 - Nginx como proxy inverso en HTTP (puerto 80), expuesto por la IP publica del VPS.
 
@@ -42,7 +42,7 @@ chmod 600 .env
 nano .env
 ```
 
-Las variables criticas son `JWT_SECRET`, los passwords de MySQL y las claves de Cloudinary y Resend. Generar el `JWT_SECRET` con `openssl rand -base64 48`.
+Las variables criticas son `JWT_SECRET`, las credenciales de la base de datos (TiDB Cloud: `MYSQL_HOST/PORT/USER/PASSWORD/PARAMS`) y las claves de Cloudinary y Resend. Generar el `JWT_SECRET` con `openssl rand -base64 48`.
 
 ### 4. Levantar los servicios
 
@@ -52,7 +52,7 @@ Desde la raiz del repo:
 bash deploy/scripts/deploy.sh
 ```
 
-El script reconstruye la imagen del backend, levanta los tres contenedores y muestra el estado. Los logs se ven con:
+El script reconstruye la imagen del backend, levanta los contenedores (backend + nginx) y muestra el estado. Los logs se ven con:
 
 ```
 docker compose -f deploy/docker-compose.prod.yml --env-file .env logs -f
@@ -102,21 +102,14 @@ El script hace `git pull --ff-only`, reconstruye y reinicia. Es idempotente.
 docker compose -f deploy/docker-compose.prod.yml --env-file .env restart backend
 ```
 
-### Backups diarios
+### Backups
 
-Programar un cron en el host (reemplaza `<REPO>` por la ruta absoluta del repo):
-
-```
-crontab -e
-0 3 * * * <REPO>/deploy/scripts/backup-db.sh >> /var/log/digitalcow-backup.log 2>&1
-```
-
-El script guarda dumps comprimidos en `<REPO>/backups` y mantiene los ultimos 14 dias.
-
-### Restaurar un backup
+Los backups los gestiona TiDB Cloud automaticamente (backups continuos y restauracion a un punto en el tiempo) desde su consola web; no hay que programar nada en el VPS. Para un volcado manual puntual:
 
 ```
-bash deploy/scripts/restore-db.sh backups/digitalcow-2026-05-18-0300.sql.gz
+mysqldump --single-transaction --set-gtid-purged=OFF --no-tablespaces \
+  --host "$MYSQL_HOST" --port "$MYSQL_PORT" -u "$MYSQL_USER" -p --ssl-mode=VERIFY_IDENTITY \
+  "$MYSQL_DATABASE" | gzip > backups/dc-$(date +%F).sql.gz
 ```
 
 ### Arranque automatico al reiniciar
@@ -142,7 +135,7 @@ Si rotas el `JWT_SECRET` todos los tokens emitidos previamente quedan invalidos 
 ## Solucion de problemas
 
 - **Nginx no arranca:** revisar `docker logs digitalcow-nginx`. Casi siempre es un error de sintaxis en `nginx/nginx.conf`. Validar localmente con `docker run --rm -v $PWD/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro nginx:1.27-alpine nginx -t`.
-- **Backend no arranca:** revisar `docker logs digitalcow-backend`. Casi siempre es una variable faltante en `.env` o MySQL no esta sano.
+- **Backend no arranca:** revisar `docker logs digitalcow-backend`. Casi siempre es una variable faltante en `.env` o no se puede conectar a la base de datos (revisar `MYSQL_*` y que la IP del VPS tenga salida hacia TiDB).
 - **Frontend recibe CORS error:** anadir el origen exacto en `CORS_ALLOWED_ORIGINS` y reiniciar el backend.
 - **Mixed content desde Vercel:** el frontend en HTTPS no puede llamar HTTP. Agregar dominio + certbot al VPS o usar Vercel solo en HTTP (no recomendado).
 - **Imagen no se actualiza:** ejecutar `docker compose ... build --no-cache backend` y luego `up -d`.
